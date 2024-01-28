@@ -1,0 +1,45 @@
+- name: "test connectivity"
+  hosts: all
+  pre_tasks:
+    - name: Test | pre_tasks wait_for_connection
+      ansible.builtin.ping:
+    - name: Test | pre_tasks Shell on hosts
+      shell: "uname -a ; echo {{ ansible_host }}"
+  tags: always
+
+- name: Gather facts for hosts
+  hosts: all
+  serial: '{{ serial|default("0") }}'
+  gather_facts: false
+  tasks:
+    - name: collect facts
+      setup:
+    - name: set facts
+      set_fact:
+        web_server_enable: '{{ lookup("ansible.builtin.env","WEB_SERVER_ENABLE")| default(False) }}'
+  tags: always
+
+- name: "install web server if web_server_enable true"
+  hosts: all
+  vars:
+    color: [ "blue", "red", "green", "yellow", "black"]
+    node_color: "{{ color | random }}"
+  tasks:
+    - name: web server
+      block:
+        - name: web_server
+          debug: var=web_server_enable
+        - name: "install lighttpd"
+          package:
+            name: lighttpd
+            update_cache: yes
+        - name: generate index.html
+          ansible.builtin.copy:
+            content: '<html><body style="background-color:{{node_color}};color:white;text-align:center;font-size:80px;">Node {{node_color}}</body></html>'
+            dest: /var/www/html/index.html
+        - name: restart service
+          ansible.builtin.service:
+            name: lighttpd
+            state: restarted
+            enabled: True
+      when: web_server_enable
